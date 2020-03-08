@@ -20,7 +20,7 @@ func readFiles(flag bool, files []string) map[string]string {
 			}
 
 			tmp := strings.Split(v, "/")
-			fileName := tmp[len(tmp) - 1]
+			fileName := tmp[len(tmp)-1]
 			m[fmt.Sprint(i)+"_"+fileName] = string(data)
 			i++
 		}

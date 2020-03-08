@@ -40,7 +40,7 @@ func main() {
 					str += fmt.Sprintf("%d, ", position)
 				}
 			}
-			if i == len(documents) - 1 {
+			if i == len(documents)-1 {
 				str += fmt.Sprintf("} \n")
 			} else {
 				str += fmt.Sprintf("} | ")
