@@ -57,6 +57,7 @@ func GetInvertedIndex(flag bool, files []string) map[string]map[string][]int {
 			token = strings.TrimFunc(token, func(r rune) bool {
 				return !unicode.IsLetter(r)
 			})
+			token = strings.ToLower(token)
 
 			if invertedIndex[token] == nil {
 				invertedIndex[token] = make(map[string][]int)
