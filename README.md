@@ -1,3 +1,3 @@
 # Akhmedov Abdulla GoLang homeworks
 
-![Alt text](./golang.jpg)
+![Alt text](./golang.png)
