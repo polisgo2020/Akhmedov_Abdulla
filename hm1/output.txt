@@ -1,5 +1,5 @@
 "a": 2_t2.txt{2} 
 "banana": 2_t2.txt{3} 
-"what": 0_t0.txt{2} | 1_t1.txt{0} 
-"it": 2_t2.txt{0} | 0_t0.txt{0, 3} | 1_t1.txt{2} 
+"what": 1_t1.txt{0} | 0_t0.txt{2} 
 "is": 2_t2.txt{1} | 0_t0.txt{1, 4} | 1_t1.txt{1} 
+"it": 1_t1.txt{2} | 2_t2.txt{0} | 0_t0.txt{0, 3} 
