@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/polisgo2020/Akhmedov_Abdulla/inverted_index"
@@ -49,8 +50,18 @@ func main() {
 		}
 	}
 
+	json, err := json.Marshal(tmp)
+	if err != nil {
+		log.Fatal(err, "Could not Marshall!")
+	}
+
 	const PERMISSION = 0444 // read only
 	if err := ioutil.WriteFile("output.txt", []byte(str), PERMISSION); err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	if err := ioutil.WriteFile("outputJSON.txt", []byte(json), PERMISSION); err != nil {
 		fmt.Println(err)
 		return
 	}
