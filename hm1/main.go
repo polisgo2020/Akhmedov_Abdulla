@@ -27,41 +27,14 @@ func main() {
 		directories = os.Args[1:]
 	}
 
-	tmp := inverted_index.GetInvertedIndex(*sin, directories)
-	var str string
-	for token, documents := range tmp {
-		str += fmt.Sprintf("\"%s\": ", token)
-		i := 0
-		for document, positions := range documents {
-			str += fmt.Sprintf("%s{", document)
-			for i, position := range positions {
-				if i == len(positions)-1 {
-					str += fmt.Sprintf("%d", position)
-				} else {
-					str += fmt.Sprintf("%d, ", position)
-				}
-			}
-			if i == len(documents)-1 {
-				str += fmt.Sprintf("} \n")
-			} else {
-				str += fmt.Sprintf("} | ")
-			}
-			i++
-		}
-	}
-
-	json, err := json.Marshal(tmp)
+	invertedIndex, err := inverted_index.GetInvertedIndex(*sin, directories)
+	jsonInverted, err := json.Marshal(invertedIndex)
 	if err != nil {
 		log.Fatal(err, "Could not Marshall!")
 	}
 
 	const PERMISSION = 0444 // read only
-	if err := ioutil.WriteFile("output.txt", []byte(str), PERMISSION); err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	if err := ioutil.WriteFile("outputJSON.txt", []byte(json), PERMISSION); err != nil {
+	if err := ioutil.WriteFile("outputJSON.txt", []byte(jsonInverted), PERMISSION); err != nil {
 		fmt.Println(err)
 		return
 	}
