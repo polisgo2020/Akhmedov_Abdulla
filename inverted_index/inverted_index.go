@@ -21,8 +21,7 @@ func readFiles(flag bool, files []string) (map[string]string, error) {
 				return nil, err
 			}
 
-			tmp := strings.Split(v, "/")
-			fileName := tmp[len(tmp)-1]
+			_, fileName := filepath.Split(v)
 			m[fmt.Sprint(i)+"_"+fileName] = string(data)
 			i++
 		}
