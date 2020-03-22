@@ -2,6 +2,7 @@ package inverted_index
 
 import (
 	"fmt"
+	"github.com/caneroj1/stemmer"
 	"io/ioutil"
 	"log"
 	"path/filepath"
@@ -63,8 +64,10 @@ func GetInvertedIndex(flag bool, files []string) (map[string]map[string][]int, e
 			token = strings.TrimFunc(token, func(r rune) bool {
 				return !unicode.IsLetter(r)
 			})
-			token = strings.ToLower(token)
+			token = stemmer.Stem(token) // Насколько я понимаю эта либа сделана по этому алгоритму
+										// https://tartarus.org/martin/PorterStemmer/def.txt
 
+			token = strings.ToLower(token)
 			if invertedIndex[token] == nil {
 				invertedIndex[token] = make(map[string][]int)
 			}
