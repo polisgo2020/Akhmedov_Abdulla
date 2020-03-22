@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/polisgo2020/Akhmedov_Abdulla/inverted_index"
+	"github.com/polisgo2020/Akhmedov_Abdulla/invertedIndex"
 	"io/ioutil"
 	"log"
 	"os"
@@ -18,23 +18,28 @@ func main() {
 
 	// if false directory provided
 	sin := flag.Bool("s", false, "True if either single file or sequence of files provided")
+	stopWords := flag.String("sw", "", "True if stop-words file provided")
 	flag.Parse()
 
 	var directories []string
-	if *sin {
+	if *sin && len(*stopWords) == 0 {
 		directories = os.Args[2:] // os.Args[1] = sin
+	} else if *sin {
+		directories = os.Args[3:]
+	} else if len(*stopWords) != 0 {
+		directories = os.Args[2:]
 	} else {
 		directories = os.Args[1:]
 	}
 
-	invertedIndex, err := inverted_index.GetInvertedIndex(*sin, directories)
-	jsonInverted, err := json.Marshal(invertedIndex)
+	invertedIn, err := invertedIndex.GetInvertedIndex(*sin, directories, *stopWords)
+	jsonInverted, err := json.Marshal(invertedIn)
 	if err != nil {
 		log.Fatal(err, "Could not Marshall!")
 	}
 
 	const PERMISSION = 0444 // read only
-	if err := ioutil.WriteFile("outputJSON.txt", []byte(jsonInverted), PERMISSION); err != nil {
+	if err := ioutil.WriteFile("outputJSON.txt", jsonInverted, PERMISSION); err != nil {
 		fmt.Println(err)
 		return
 	}
