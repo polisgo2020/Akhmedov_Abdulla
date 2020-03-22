@@ -1,4 +1,4 @@
-package inverted_index
+package invertedIndex
 
 import (
 	"fmt"
@@ -9,6 +9,8 @@ import (
 	"strings"
 	"unicode"
 )
+
+type Index map[string]map[string][]int
 
 func readFiles(flag bool, files []string) (map[string]string, error) {
 	m := make(map[string]string)
@@ -51,11 +53,26 @@ func readFiles(flag bool, files []string) (map[string]string, error) {
 }
 
 // returns inverted index map that also stores position of each token in document
-func GetInvertedIndex(flag bool, files []string) (map[string]map[string][]int, error) {
+func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, error) {
 	invertedIndex := make(map[string]map[string][]int)
 	filesMap, err := readFiles(flag, files)
 	if err != nil {
 		return nil, err
+	}
+
+	stopWordsMap := make(map[string]int)
+	if len(stopWordsFile) != 0 {
+		tmp, err := readFiles(true, []string{stopWordsFile})
+
+		for _, str := range tmp {
+			words := strings.Fields(str)
+			for _, word := range words {
+				stopWordsMap[word] = 0
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for file, str := range filesMap {
@@ -65,14 +82,16 @@ func GetInvertedIndex(flag bool, files []string) (map[string]map[string][]int, e
 				return !unicode.IsLetter(r)
 			})
 			token = stemmer.Stem(token) // Насколько я понимаю эта либа сделана по этому алгоритму
-										// https://tartarus.org/martin/PorterStemmer/def.txt
+			// https://tartarus.org/martin/PorterStemmer/def.txt
 
 			token = strings.ToLower(token)
-			if invertedIndex[token] == nil {
-				invertedIndex[token] = make(map[string][]int)
-			}
+			if _, ok := stopWordsMap[token]; !ok {
+				if invertedIndex[token] == nil {
+					invertedIndex[token] = make(map[string][]int)
+				}
 
-			invertedIndex[token][file] = append(invertedIndex[token][file], position)
+				invertedIndex[token][file] = append(invertedIndex[token][file], position)
+			}
 		}
 	}
 
