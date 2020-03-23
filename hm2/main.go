@@ -97,8 +97,6 @@ func main() {
 			}
 		}
 	}
-
-	fmt.Print(searchPhrase)
 }
 
 func getInfo(phrase []string, file string) float64 {
