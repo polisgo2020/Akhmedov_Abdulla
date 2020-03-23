@@ -43,7 +43,7 @@ func readFiles(flag bool, files []string) (map[string]string, error) {
 					return nil, err
 				}
 
-				m[strings.Join([]string{fmt.Sprintf("%d", i), "_", file.Name()}, "")] = string(data)
+				m[file.Name()] = string(data)
 				i++
 			}
 		}
@@ -62,14 +62,7 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, e
 
 	stopWordsMap := make(map[string]int)
 	if len(stopWordsFile) != 0 {
-		tmp, err := readFiles(true, []string{stopWordsFile})
-
-		for _, str := range tmp {
-			words := strings.Fields(str)
-			for _, word := range words {
-				stopWordsMap[word] = 0
-			}
-		}
+		stopWordsMap, err = ReadStopWords(stopWordsFile)
 		if err != nil {
 			return nil, err
 		}
@@ -85,7 +78,7 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, e
 			// https://tartarus.org/martin/PorterStemmer/def.txt
 
 			token = strings.ToLower(token)
-			if _, ok := stopWordsMap[token]; !ok {
+			if _, ok := stopWordsMap[token]; !ok && len(token) != 0 {
 				if invertedIndex[token] == nil {
 					invertedIndex[token] = make(map[string][]int)
 				}
@@ -95,5 +88,27 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, e
 		}
 	}
 
+	// список всех файлов
+	invertedIndex[""] = make(map[string][]int)
+	for file, _ := range filesMap {
+		invertedIndex[""][file] = append(invertedIndex[""][file])
+	}
+
 	return invertedIndex, nil
+}
+
+func ReadStopWords(file string) (map[string]int, error) {
+	m := make(map[string]int)
+
+	str, err := ioutil.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+
+	words := strings.Fields(string(str))
+	for _, word := range words {
+		m[word] = 0
+	}
+
+	return m, nil
 }
