@@ -122,6 +122,7 @@ func findMinWay(phrase []string, index int, file string, count int) (int, int) {
 	var resCount int
 	for _, v1 := range curList {
 		var res int
+		// TODO: кэшировать значения этого вызова в матрицу[index][count] -> сильно ускорит обход дерева
 		res, resCount = findMinWay(phrase, nextIndex, file, count+1)
 		for _, v2 := range nextList {
 			delta := abs(v2 - v1)
