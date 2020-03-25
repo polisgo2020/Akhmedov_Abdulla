@@ -3,66 +3,26 @@ package invertedIndex
 import (
 	"fmt"
 	"github.com/caneroj1/stemmer"
-	"io/ioutil"
-	"log"
-	"path/filepath"
+	"github.com/polisgo2020/Akhmedov_Abdulla/readFiles"
+	"sort"
 	"strings"
 	"unicode"
 )
 
 type Index map[string]map[string][]int
+var invertedIn Index
 
-func readFiles(flag bool, files []string) (map[string]string, error) {
-	m := make(map[string]string)
-	i := 0
-
-	if flag {
-		for _, v := range files {
-			data, err := ioutil.ReadFile(v)
-			if err != nil {
-				log.Print(err, "Could not read file!")
-				return nil, err
-			}
-
-			_, fileName := filepath.Split(v)
-			m[fmt.Sprint(i)+"_"+fileName] = string(data)
-			i++
-		}
-	} else {
-		for _, v := range files {
-			dir, err := ioutil.ReadDir(v)
-			if err != nil {
-				log.Print(err, "Could not read directory!")
-				return nil, err
-			}
-
-			for _, file := range dir {
-				data, err := ioutil.ReadFile(filepath.Join(v, file.Name()))
-				if err != nil {
-					log.Print(err, "Could not read file!")
-					return nil, err
-				}
-
-				m[file.Name()] = string(data)
-				i++
-			}
-		}
-	}
-
-	return m, nil
-}
-
-// returns inverted index map that also stores position of each token in document
+// GetInvertedIndex returns inverted index map that also stores position of each token in document
 func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, error) {
 	invertedIndex := make(map[string]map[string][]int)
-	filesMap, err := readFiles(flag, files)
+	filesMap, err := readFiles.ReadFiles(flag, files)
 	if err != nil {
 		return nil, err
 	}
 
 	stopWordsMap := make(map[string]int)
 	if len(stopWordsFile) != 0 {
-		stopWordsMap, err = ReadStopWords(stopWordsFile)
+		stopWordsMap, err = readFiles.ReadStopWords(stopWordsFile)
 		if err != nil {
 			return nil, err
 		}
@@ -97,18 +57,126 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, e
 	return invertedIndex, nil
 }
 
-func ReadStopWords(file string) (map[string]int, error) {
-	m := make(map[string]int)
+func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index) {
+	invertedIn = iIn
+	var phrase []string
+	for i := 0; i < len(searchPhrase); i++ {
+		if _, ok := stopWords[searchPhrase[i]]; ok {
+			continue
+		}
 
-	str, err := ioutil.ReadFile(file)
-	if err != nil {
-		return nil, err
+		tmp := strings.ToLower(stemmer.Stem(searchPhrase[i]))
+		if _, ok := invertedIn[tmp]; ok {
+			phrase = append(phrase, tmp)
+		}
+	}
+	searchPhrase = phrase
+	var answer []float64
+	answerMap := make (map[float64][]string)
+	if len(searchPhrase) == 1 {
+		if filesMap, ok := invertedIn[searchPhrase[0]]; ok {
+			for file := range filesMap {
+				tmp := float64(len(filesMap[file]))
+
+				answer = append(answer, tmp)
+				if answerMap[tmp] == nil {
+					answerMap[tmp] = make([]string, 0, 0)
+				}
+
+				answerMap[tmp] = append(answerMap[tmp], file)
+			}
+
+			_ = sort.Reverse(sort.Float64Slice(answer))
+			for _, v := range answer {
+				files := answerMap[v]
+				for _, file := range files {
+					fmt.Printf("%s - %f\n", file, v)
+				}
+			}
+		} else {
+			fmt.Print("None of files contains this search-phrase")
+		}
+	} else {
+		tmp := invertedIn[""]
+		for file, _ := range tmp {
+			res := getInfo(searchPhrase, file)
+			answer = append(answer, res)
+
+			if answerMap[res] == nil {
+				answerMap[res] = make([]string, 0, 0)
+			}
+
+			answerMap[res] = append(answerMap[res], file)
+		}
+
+		sort.Float64s(answer)
+		for _, v := range answer {
+			files := answerMap[v]
+			for _, file := range files {
+				if v > 0.0000001 {
+					fmt.Printf("%s - %f\n", file, v)
+				}
+			}
+		}
+	}
+}
+
+func getInfo(phrase []string, file string) float64 {
+	distance, count := findMinWay(phrase, 0, file, 1)
+	return float64(distance) / float64(count)
+}
+
+func findMinWay(phrase []string, index int, file string, count int) (int, int) {
+	if index >= len(phrase) {
+		return 0, count
 	}
 
-	words := strings.Fields(string(str))
-	for _, word := range words {
-		m[word] = 0
+	curIndex := findFirstExistTokenIndex(phrase, index, file)
+	nextIndex := findFirstExistTokenIndex(phrase, curIndex+1, file)
+	if nextIndex == -1 || curIndex == -1 {
+		return 0, count
 	}
 
-	return m, nil
+	curList := invertedIn[phrase[curIndex]][file]
+	nextList := invertedIn[phrase[nextIndex]][file]
+
+	min := 99999
+	var resCount int
+	for _, v1 := range curList {
+		var res int
+		// TODO: кэшировать значения этого вызова в матрицу[index][count] -> сильно ускорит обход дерева
+		res, resCount = findMinWay(phrase, nextIndex, file, count+1)
+		for _, v2 := range nextList {
+			delta := abs(v2 - v1)
+			min = fMin(min, res+delta)
+		}
+	}
+
+	return min, resCount
+}
+
+func fMin(a int, b int) int {
+	if a <= b {
+		return a
+	}
+
+	return b
+}
+
+func abs(a int) int {
+	if a >= 0 {
+		return a
+	}
+
+	return -a
+}
+
+func findFirstExistTokenIndex(phrase []string, index int, file string) int {
+	for i := index; i < len(phrase); i++ {
+		if _, ok := invertedIn[phrase[index]][file]; ok {
+			return index
+		}
+	}
+
+	return -1
 }
