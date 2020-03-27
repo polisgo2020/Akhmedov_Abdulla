@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/caneroj1/stemmer"
 	"github.com/polisgo2020/Akhmedov_Abdulla/readFiles"
+	"math"
 	"sort"
 	"strings"
 	"unicode"
@@ -140,7 +141,7 @@ func findMinWay(phrase []string, index int, file string, count int) (int, int) {
 	curList := invertedIn[phrase[curIndex]][file]
 	nextList := invertedIn[phrase[nextIndex]][file]
 
-	min := 99999
+	min := math.MaxInt64
 	var resCount int
 	for _, v1 := range curList {
 		var res int
