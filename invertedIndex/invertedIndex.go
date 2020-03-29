@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync"
 	"unicode"
 )
 
@@ -61,16 +62,24 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, e
 func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index) {
 	invertedIn = iIn
 	var phrase []string
-	for i := 0; i < len(searchPhrase); i++ {
-		if _, ok := stopWords[searchPhrase[i]]; ok {
-			continue
-		}
 
-		tmp := strings.ToLower(stemmer.Stem(searchPhrase[i]))
-		if _, ok := invertedIn[tmp]; ok {
-			phrase = append(phrase, tmp)
-		}
+	var wg sync.WaitGroup
+	for i := 0; i < len(searchPhrase); i++ {
+		wg.Add(1)
+		go func(j int) {
+			if _, ok := stopWords[searchPhrase[j]]; ok {
+				return
+			}
+
+			tmp := strings.ToLower(stemmer.Stem(searchPhrase[j]))
+			if _, ok := invertedIn[tmp]; ok {
+				phrase = append(phrase, tmp)
+			}
+			wg.Done()
+		}(i)
 	}
+	wg.Wait()
+
 	searchPhrase = phrase
 	var answer []float64
 	answerMap := make (map[float64][]string)
