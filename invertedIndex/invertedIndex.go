@@ -12,11 +12,17 @@ import (
 )
 
 type Index map[string]map[string][]int
+
 var invertedIn Index
+type safeIndex struct {
+	invertedIndex Index
+	mux sync.Mutex
+}
 
 // GetInvertedIndex returns inverted index map that also stores position of each token in document
 func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, error) {
-	invertedIndex := make(map[string]map[string][]int)
+	var sin = safeIndex{make(Index), sync.Mutex{}}
+
 	filesMap, err := readFiles.ReadFiles(flag, files)
 	if err != nil {
 		return nil, err
@@ -30,33 +36,41 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, e
 		}
 	}
 
+	var wg sync.WaitGroup
 	for file, str := range filesMap {
 		tokens := strings.Fields(str)
 		for position, token := range tokens {
-			token = strings.TrimFunc(token, func(r rune) bool {
-				return !unicode.IsLetter(r)
-			})
-			token = stemmer.Stem(token) // Насколько я понимаю эта либа сделана по этому алгоритму
-			// https://tartarus.org/martin/PorterStemmer/def.txt
+			wg.Add(1)
+			go func(goToken string, goPosition int) {
+				sin.mux.Lock()
+				defer sin.mux.Unlock()
+				defer wg.Done()
+				goToken = strings.TrimFunc(goToken, func(r rune) bool {
+					return !unicode.IsLetter(r)
+				})
+				goToken = stemmer.Stem(goToken) // Насколько я понимаю эта либа сделана по этому алгоритму
+				// https://tartarus.org/martin/PorterStemmer/def.txt
 
-			token = strings.ToLower(token)
-			if _, ok := stopWordsMap[token]; !ok && len(token) != 0 {
-				if invertedIndex[token] == nil {
-					invertedIndex[token] = make(map[string][]int)
+				goToken = strings.ToLower(goToken)
+				if _, ok := stopWordsMap[goToken]; !ok && len(goToken) != 0 {
+					if sin.invertedIndex[goToken] == nil {
+						sin.invertedIndex[goToken] = make(map[string][]int)
+					}
+
+					sin.invertedIndex[goToken][fie] = append(sin.invertedIndex[goToken][file], goPosition)
 				}
-
-				invertedIndex[token][file] = append(invertedIndex[token][file], position)
-			}
+			}(token, position)
 		}
 	}
 
+	wg.Wait()
 	// список всех файлов
-	invertedIndex[""] = make(map[string][]int)
+	sin.invertedIndex[""] = make(map[string][]int)
 	for file, _ := range filesMap {
-		invertedIndex[""][file] = append(invertedIndex[""][file])
+		sin.invertedIndex[""][file] = append(sin.invertedIndex[""][file])
 	}
 
-	return invertedIndex, nil
+	return sin.invertedIndex, nil
 }
 
 func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index) {
@@ -82,7 +96,7 @@ func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index)
 
 	searchPhrase = phrase
 	var answer []float64
-	answerMap := make (map[float64][]string)
+	answerMap := make(map[float64][]string)
 	if len(searchPhrase) == 1 {
 		if filesMap, ok := invertedIn[searchPhrase[0]]; ok {
 			for file := range filesMap {
