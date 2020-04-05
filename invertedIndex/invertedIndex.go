@@ -14,52 +14,65 @@ import (
 type Index map[string]map[string][]int
 
 var invertedIn Index
+
 type safeIndex struct {
 	invertedIndex Index
-	mux sync.Mutex
+	mux           sync.Mutex
+}
+
+func (sin *safeIndex) addToken(token string, position int, stopWordsMap map[string]int, file string, wg sync.WaitGroup) {
+	token = strings.TrimFunc(token, func(r rune) bool {
+		return !unicode.IsLetter(r)
+	})
+	token = stemmer.Stem(token)
+
+	token = strings.ToLower(token)
+	if _, ok := stopWordsMap[token]; !ok && len(token) != 0 {
+		if sin.invertedIndex[token] == nil {
+			sin.invertedIndex[token] = make(map[string][]int)
+		}
+
+		sin.mux.Lock()
+		sin.invertedIndex[token][file] = append(sin.invertedIndex[token][file], position)
+		sin.mux.Unlock()
+	}
+	wg.Done()
 }
 
 // GetInvertedIndex returns inverted index map that also stores position of each token in document
 func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, error) {
-	var sin = safeIndex{make(Index), sync.Mutex{}}
+	var (
+		sin          = safeIndex{make(Index), sync.Mutex{}}
+		filesMap     map[string]string
+		err          error
+		stopWordsMap = make(map[string]int)
+		wg           sync.WaitGroup
+	)
 
-	filesMap, err := readFiles.ReadFiles(flag, files)
+	wg.Add(1)
+	go func() {
+		filesMap, err = readFiles.ReadFiles(flag, files)
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		if len(stopWordsFile) != 0 {
+			stopWordsMap, err = readFiles.ReadStopWords(stopWordsFile)
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+
 	if err != nil {
 		return nil, err
 	}
 
-	stopWordsMap := make(map[string]int)
-	if len(stopWordsFile) != 0 {
-		stopWordsMap, err = readFiles.ReadStopWords(stopWordsFile)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	var wg sync.WaitGroup
 	for file, str := range filesMap {
 		tokens := strings.Fields(str)
 		for position, token := range tokens {
 			wg.Add(1)
-			go func(goToken string, goPosition int) {
-				sin.mux.Lock()
-				defer sin.mux.Unlock()
-				defer wg.Done()
-				goToken = strings.TrimFunc(goToken, func(r rune) bool {
-					return !unicode.IsLetter(r)
-				})
-				goToken = stemmer.Stem(goToken) // Насколько я понимаю эта либа сделана по этому алгоритму
-				// https://tartarus.org/martin/PorterStemmer/def.txt
-
-				goToken = strings.ToLower(goToken)
-				if _, ok := stopWordsMap[goToken]; !ok && len(goToken) != 0 {
-					if sin.invertedIndex[goToken] == nil {
-						sin.invertedIndex[goToken] = make(map[string][]int)
-					}
-
-					sin.invertedIndex[goToken][fie] = append(sin.invertedIndex[goToken][file], goPosition)
-				}
-			}(token, position)
+			sin.addToken(token, position, stopWordsMap, file, wg)
 		}
 	}
 

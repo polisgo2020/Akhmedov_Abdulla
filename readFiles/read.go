@@ -6,12 +6,36 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
-func ReadFiles(flag bool, files []string) (map[string]string, error) {
-	m := make(map[string]string)
-	i := 0
+type safeRead struct {
+	filesMap map[string]string
+	mux      sync.Mutex
+}
 
+func (sr *safeRead) addFile(filePath string, index *int) error {
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		log.Print(err, "Could not read file!")
+		return err
+	}
+
+	_, fileName := filepath.Split(filePath)
+	sr.mux.Lock()
+	sr.filesMap[fileName] = string(data)
+	sr.mux.Unlock()
+	*index++
+
+	return nil
+}
+
+func ReadFiles(flag bool, files []string) (map[string]string, error) {
+	sr := safeRead{make(map[string]string), sync.Mutex{}}
+	var index int
+
+	index = 0
+	wg := sync.WaitGroup{}
 	if flag {
 		for _, v := range files {
 			data, err := ioutil.ReadFile(v)
@@ -21,8 +45,8 @@ func ReadFiles(flag bool, files []string) (map[string]string, error) {
 			}
 
 			_, fileName := filepath.Split(v)
-			m[fmt.Sprint(i)+"_"+fileName] = string(data)
-			i++
+			sr.filesMap[fmt.Sprint(index)+"_"+fileName] = string(data)
+			index++
 		}
 	} else {
 		for _, v := range files {
@@ -33,19 +57,18 @@ func ReadFiles(flag bool, files []string) (map[string]string, error) {
 			}
 
 			for _, file := range dir {
-				data, err := ioutil.ReadFile(filepath.Join(v, file.Name()))
+				wg.Add(1)
+				err = sr.addFile(filepath.Join(v, file.Name()), &index)
 				if err != nil {
-					log.Print(err, "Could not read file!")
 					return nil, err
 				}
-
-				m[file.Name()] = string(data)
-				i++
+				wg.Done()
 			}
 		}
 	}
 
-	return m, nil
+	wg.Wait()
+	return sr.filesMap, nil
 }
 
 func ReadStopWords(file string) (map[string]int, error) {
@@ -63,4 +86,3 @@ func ReadStopWords(file string) (map[string]int, error) {
 
 	return m, nil
 }
-

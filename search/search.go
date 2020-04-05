@@ -58,4 +58,3 @@ func main() {
 	wg.Wait()
 	invertedIndex.PrintSortedList(searchPhrase, stopWords, invertedIn)
 }
-
