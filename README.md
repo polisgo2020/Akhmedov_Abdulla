@@ -1,10 +1,10 @@
 # Akhmedov Abdulla GoLang homeworks
 
-### Примеры запуска из директории `hm1`
-* `go run main.go ../inputFiles`
-* `go run main.go -sw=../stopWords.txt ../inputFiles`
-* `go run main.go -s ../inputFiles/t0.txt`
-* `go run main.go -s -sw=../stopWords.txt ../inputFiles/t0.txt`
+### Примеры запуска из директории `build`
+* `go run build.go ../inputFiles`
+* `go run build.go -sw=../stopWords.txt ../inputFiles`
+* `go run build.go -s ../inputFiles/t0.txt`
+* `go run build.go -s -sw=../stopWords.txt ../inputFiles/t0.txt`
 
 # Алгоритм поиска фразы
 На этапе формирования обратного индекса берется основа слова, исключаются
@@ -18,9 +18,9 @@
 величину на количество слов, принимавших участие в этом пути. Таким образом,
 наилучшим файлом будет тот, у которого это отношение меньше, то есть слова находятся кучнее.
 
-### Примеры запуска из директории `hm2`
-* `go run ./main.go ../stopWords.txt ../hm1/outputJSON.txt aspect association`
-* `go run ./main.go ../stopWords.txt ../hm1/outputJSON.txt Gaidai`
-* `go run ./main.go ../stopWords.txt ../hm1/outputJSON.txt Gaidai generation`
+### Примеры запуска из директории `search`
+* `go run search.go ../stopWords.txt ../hm1/outputJSON.txt aspect association`
+* `go run search.go ../stopWords.txt ../hm1/outputJSON.txt Gaidai`
+* `go run search.go ../stopWords.txt ../hm1/outputJSON.txt Gaidai generation`
 
 ![Alt text](./golang.png)
