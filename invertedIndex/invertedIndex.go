@@ -20,7 +20,7 @@ type safeIndex struct {
 	mux           sync.Mutex
 }
 
-func (sin *safeIndex) addToken(token string, position int, stopWordsMap map[string]int, file string, wg sync.WaitGroup) {
+func (sin *safeIndex) addToken(token string, position int, stopWordsMap map[string]int, file string, wg *sync.WaitGroup) {
 	token = strings.TrimFunc(token, func(r rune) bool {
 		return !unicode.IsLetter(r)
 	})
@@ -72,7 +72,7 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, e
 		tokens := strings.Fields(str)
 		for position, token := range tokens {
 			wg.Add(1)
-			sin.addToken(token, position, stopWordsMap, file, wg)
+			sin.addToken(token, position, stopWordsMap, file, &wg)
 		}
 	}
 
