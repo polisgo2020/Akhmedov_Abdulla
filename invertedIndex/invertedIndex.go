@@ -86,7 +86,7 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, e
 	return sin.invertedIndex, nil
 }
 
-func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index) {
+func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index) string {
 	invertedIn = iIn
 	var phrase []string
 
@@ -110,6 +110,7 @@ func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index)
 	searchPhrase = phrase
 	var answer []float64
 	answerMap := make(map[float64][]string)
+	result := ""
 	if len(searchPhrase) == 1 {
 		if filesMap, ok := invertedIn[searchPhrase[0]]; ok {
 			for file := range filesMap {
@@ -127,7 +128,7 @@ func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index)
 			for _, v := range answer {
 				files := answerMap[v]
 				for _, file := range files {
-					fmt.Printf("%s - %f\n", file, v)
+					result = fmt.Sprintf("%s - %f\n", file, v)
 				}
 			}
 		} else {
@@ -151,11 +152,13 @@ func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index)
 			files := answerMap[v]
 			for _, file := range files {
 				if v > 0.0000001 {
-					fmt.Printf("%s - %f\n", file, v)
+					result += fmt.Sprintf("%s - %f\n", file, v)
 				}
 			}
 		}
 	}
+
+	return result
 }
 
 func getInfo(phrase []string, file string) float64 {
