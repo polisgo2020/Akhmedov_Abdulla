@@ -99,14 +99,15 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (SafeInde
 			select {
 			case mErr, ok := <-errChannel:
 				if !ok {
-					err = mErr
-					close(errChannel)
 					return struct{}{}
 				}
+				err = mErr
+				close(errChannel)
 			}
 		}
 	}()
 	wg.Wait()
+	close(errChannel)
 
 	if err != nil {
 		return SafeIndex{}, err
