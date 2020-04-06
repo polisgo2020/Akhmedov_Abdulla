@@ -11,7 +11,7 @@ import (
 
 type safeRead struct {
 	filesMap map[string]string
-	mux      sync.Mutex
+	wg sync.WaitGroup
 }
 
 func (sr *safeRead) addFile(filePath string, index *int) error {
@@ -22,20 +22,18 @@ func (sr *safeRead) addFile(filePath string, index *int) error {
 	}
 
 	_, fileName := filepath.Split(filePath)
-	sr.mux.Lock()
 	sr.filesMap[fileName] = string(data)
-	sr.mux.Unlock()
 	*index++
+	sr.wg.Done()
 
 	return nil
 }
 
 func ReadFiles(flag bool, files []string) (map[string]string, error) {
-	sr := safeRead{make(map[string]string), sync.Mutex{}}
+	sr := safeRead{make(map[string]string), sync.WaitGroup{}}
 	var index int
 
 	index = 0
-	wg := sync.WaitGroup{}
 	if flag {
 		for _, v := range files {
 			data, err := ioutil.ReadFile(v)
@@ -57,17 +55,16 @@ func ReadFiles(flag bool, files []string) (map[string]string, error) {
 			}
 
 			for _, file := range dir {
-				wg.Add(1)
+				sr.wg.Add(1)
 				err = sr.addFile(filepath.Join(v, file.Name()), &index)
 				if err != nil {
 					return nil, err
 				}
-				wg.Done()
 			}
 		}
 	}
 
-	wg.Wait()
+	sr.wg.Wait()
 	return sr.filesMap, nil
 }
 

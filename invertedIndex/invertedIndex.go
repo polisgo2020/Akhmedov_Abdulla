@@ -15,97 +15,140 @@ type Index map[string]map[string][]int
 
 var invertedIn Index
 
-type safeIndex struct {
-	invertedIndex Index
-	mux           sync.Mutex
+type dto struct {
+	token    string
+	position int
+	file     string
 }
 
-func (sin *safeIndex) addToken(token string, position int, stopWordsMap map[string]int, file string, wg sync.WaitGroup) {
-	token = strings.TrimFunc(token, func(r rune) bool {
-		return !unicode.IsLetter(r)
-	})
-	token = stemmer.Stem(token)
+type SafeIndex struct {
+	InvertedIndex Index
+	stopWords     map[string]int
+	ch            chan dto
+	Wg            sync.WaitGroup
+}
 
-	token = strings.ToLower(token)
-	if _, ok := stopWordsMap[token]; !ok && len(token) != 0 {
-		if sin.invertedIndex[token] == nil {
-			sin.invertedIndex[token] = make(map[string][]int)
+func (sin *SafeIndex) addToken() {
+	for {
+		select {
+		case dto, ok := <-sin.ch:
+			if !ok {
+				sin.Wg.Done()
+				return
+			}
+			token := dto.token
+			file := dto.file
+			position := dto.position
+
+			token = strings.TrimFunc(token, func(r rune) bool {
+				return !unicode.IsLetter(r)
+			})
+			token = stemmer.Stem(token)
+
+			token = strings.ToLower(token)
+			if _, ok := sin.stopWords[token]; !ok && len(token) != 0 {
+				if sin.InvertedIndex[token] == nil {
+					sin.InvertedIndex[token] = make(map[string][]int)
+				}
+
+				sin.InvertedIndex[token][file] = append(sin.InvertedIndex[token][file], position)
+			}
 		}
-
-		sin.mux.Lock()
-		sin.invertedIndex[token][file] = append(sin.invertedIndex[token][file], position)
-		sin.mux.Unlock()
 	}
-	wg.Done()
 }
 
 // GetInvertedIndex returns inverted index map that also stores position of each token in document
-func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, error) {
+func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (SafeIndex, error) {
 	var (
-		sin          = safeIndex{make(Index), sync.Mutex{}}
 		filesMap     map[string]string
-		err          error
-		stopWordsMap = make(map[string]int)
+		stopWordsMap map[string]int
 		wg           sync.WaitGroup
+		err          error
+		errChannel   = make(chan error)
 	)
 
 	wg.Add(1)
 	go func() {
-		filesMap, err = readFiles.ReadFiles(flag, files)
+		var mErr error
+		filesMap, mErr = readFiles.ReadFiles(flag, files)
+		if mErr != nil {
+			if _, ok := <-errChannel; ok {
+				errChannel <- mErr
+			}
+		}
 		wg.Done()
 	}()
 
 	wg.Add(1)
 	go func() {
+		var mErr error
 		if len(stopWordsFile) != 0 {
-			stopWordsMap, err = readFiles.ReadStopWords(stopWordsFile)
+			stopWordsMap, mErr = readFiles.ReadStopWords(stopWordsFile)
+		}
+		if mErr != nil {
+			if _, ok := <-errChannel; ok {
+				errChannel <- mErr
+			}
 		}
 		wg.Done()
+	}()
+
+	// запоминаем первую ошибку и возвращаем ее
+	go func() struct{} {
+		for {
+			select {
+			case mErr, ok := <-errChannel:
+				if !ok {
+					err = mErr
+					close(errChannel)
+					return struct{}{}
+				}
+			}
+		}
 	}()
 	wg.Wait()
 
 	if err != nil {
-		return nil, err
+		return SafeIndex{}, err
 	}
 
+	sin := SafeIndex{make(Index), stopWordsMap, make(chan dto), sync.WaitGroup{}}
+
+	sin.Wg.Add(1)
+	go sin.addToken()
 	for file, str := range filesMap {
 		tokens := strings.Fields(str)
+
 		for position, token := range tokens {
-			wg.Add(1)
-			sin.addToken(token, position, stopWordsMap, file, wg)
+			sin.ch <- dto{token, position, file}
 		}
 	}
+	close(sin.ch)
+	sin.Wg.Wait()
 
-	wg.Wait()
 	// список всех файлов
-	sin.invertedIndex[""] = make(map[string][]int)
+	sin.InvertedIndex[""] = make(map[string][]int)
 	for file, _ := range filesMap {
-		sin.invertedIndex[""][file] = append(sin.invertedIndex[""][file])
+		sin.InvertedIndex[""][file] = append(sin.InvertedIndex[""][file])
 	}
 
-	return sin.invertedIndex, nil
+	return sin, nil
 }
 
 func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index) {
 	invertedIn = iIn
 	var phrase []string
 
-	var wg sync.WaitGroup
-	for i := 0; i < len(searchPhrase); i++ {
-		wg.Add(1)
-		go func(j int) {
-			if _, ok := stopWords[searchPhrase[j]]; ok {
-				return
-			}
+	for i := range searchPhrase {
+		if _, ok := stopWords[searchPhrase[i]]; ok {
+			return
+		}
 
-			tmp := strings.ToLower(stemmer.Stem(searchPhrase[j]))
-			if _, ok := invertedIn[tmp]; ok {
-				phrase = append(phrase, tmp)
-			}
-			wg.Done()
-		}(i)
+		tmp := strings.ToLower(stemmer.Stem(searchPhrase[i]))
+		if _, ok := invertedIn[tmp]; ok {
+			phrase = append(phrase, tmp)
+		}
 	}
-	wg.Wait()
 
 	searchPhrase = phrase
 	var answer []float64

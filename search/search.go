@@ -54,7 +54,7 @@ func main() {
 			searchPhrase = append(searchPhrase, os.Args[i])
 		}
 	}()
-
 	wg.Wait()
+
 	invertedIndex.PrintSortedList(searchPhrase, stopWords, invertedIn)
 }
