@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/polisgo2020/Akhmedov_Abdulla/invertedIndex"
 	"github.com/polisgo2020/Akhmedov_Abdulla/readFiles"
 	"io/ioutil"
@@ -55,7 +54,7 @@ func main() {
 			searchPhrase = append(searchPhrase, os.Args[i])
 		}
 	}()
-
 	wg.Wait()
-	fmt.Print(invertedIndex.PrintSortedList(searchPhrase, stopWords, invertedIn))
+
+	invertedIndex.PrintSortedList(searchPhrase, stopWords, invertedIn)
 }
