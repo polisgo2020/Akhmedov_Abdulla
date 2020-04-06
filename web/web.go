@@ -20,6 +20,7 @@ var (
 	invertedIndexMap  invertedIndex.Index
 	stopWords         map[string]int
 	wg                sync.WaitGroup
+	errChannel        = make(chan error)
 	err               error
 
 	handler = http.NewServeMux()
@@ -52,27 +53,45 @@ func init() {
 
 	wg.Add(1)
 	go func() {
-		stopWords, err = readFiles.ReadStopWords(stopWordsFile)
-		if err != nil {
-			log.Print(err)
+		var mErr error
+		stopWords, mErr = readFiles.ReadStopWords(stopWordsFile)
+		if mErr != nil {
+			errChannel <- mErr
 		}
 		wg.Done()
 	}()
+
 	wg.Add(1)
 	go func() {
-		file, err := ioutil.ReadFile(invertedIndexFile)
-		if err != nil {
-			log.Println(err)
+		var mErr error
+		file, mErr := ioutil.ReadFile(invertedIndexFile)
+		if mErr != nil {
+			errChannel <- mErr
 			return
 		}
-		err = json.Unmarshal(file, &invertedIndexMap)
-		if err != nil {
-			log.Println(err)
+		mErr = json.Unmarshal(file, &invertedIndexMap)
+		if mErr != nil {
+			errChannel <- mErr
 			return
 		}
 		wg.Done()
 	}()
+
+	go func() struct{} {
+		for {
+			select {
+			case mErr, ok := <-errChannel:
+				if !ok {
+					return struct{}{}
+				}
+				err = mErr
+				close(errChannel)
+			}
+		}
+	}()
 	wg.Wait()
+	close(errChannel)
+
 	if err != nil {
 		log.Fatal(err)
 	}

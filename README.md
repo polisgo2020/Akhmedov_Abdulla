@@ -23,4 +23,11 @@
 * `go run search.go ../stopWords.txt ../hm1/outputJSON.txt Gaidai`
 * `go run search.go ../stopWords.txt ../hm1/outputJSON.txt Gaidai generation`
 
+### Пример запуска из корня репозитория
+Если аргументом не передадут стоп-слова или файл с обратным индексом, возьмутся дефолтные пути к этим файла, с учётом
+того, что программа запускается из корня
+* `go run ./web/web.go -sw=stopWords.txt -index=outputJSON.txt :8080`
+* `go run ./web/web.go -index=outputJSON.txt :8080`
+* `go run ./web/web.go :8080`
+
 ![Alt text](./golang.png)
