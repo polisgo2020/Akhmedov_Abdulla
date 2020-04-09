@@ -94,17 +94,14 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (SafeInde
 	}()
 
 	// запоминаем первую ошибку и возвращаем ее
-	go func() struct{} {
-		for {
-			select {
-			case mErr, ok := <-errChannel:
-				if !ok {
-					return struct{}{}
-				}
-				err = mErr
-				close(errChannel)
-			}
+	go func() {
+		mErr, ok := <-errChannel
+		if !ok {
+			return
 		}
+		err = mErr
+		close(errChannel)
+
 	}()
 	wg.Wait()
 	close(errChannel)
