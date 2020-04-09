@@ -104,7 +104,9 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (SafeInde
 
 	}()
 	wg.Wait()
-	close(errChannel)
+	if _, ok := <-errChannel; ok {
+		close(errChannel)
+	}
 
 	if err != nil {
 		return SafeIndex{}, err
