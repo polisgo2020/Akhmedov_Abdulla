@@ -58,7 +58,7 @@ func (sin *SafeIndex) addToken() {
 }
 
 // GetInvertedIndex returns inverted index map that also stores position of each token in document
-func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (SafeIndex, error) {
+func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (*SafeIndex, error) {
 	var (
 		filesMap     map[string]string
 		stopWordsMap map[string]int
@@ -104,12 +104,14 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (SafeInde
 
 	}()
 	wg.Wait()
-	if _, ok := <-errChannel; ok {
+
+	// я не понимаю почему, но если я пишу тут этот if у меня не заканчивается работа программы
+	//if _, ok := <-errChannel; ok {
 		close(errChannel)
-	}
+	//}
 
 	if err != nil {
-		return SafeIndex{}, err
+		return nil, err
 	}
 
 	sin := SafeIndex{make(Index), stopWordsMap, make(chan dto), sync.WaitGroup{}}
@@ -132,7 +134,7 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (SafeInde
 		sin.InvertedIndex[""][file] = append(sin.InvertedIndex[""][file])
 	}
 
-	return sin, nil
+	return &sin, nil
 }
 
 func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index) {
