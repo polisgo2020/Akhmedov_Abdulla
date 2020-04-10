@@ -32,7 +32,10 @@ func main() {
 		directories = os.Args[1:]
 	}
 	invertedIn, err := invertedIndex.GetInvertedIndex(*sin, directories, *stopWords)
-	invertedIn.Wg.Wait()
+	if err != nil {
+		log.Print(err)
+		return
+	}
 
 	jsonInverted, err := json.Marshal(invertedIn.InvertedIndex)
 	if err != nil {

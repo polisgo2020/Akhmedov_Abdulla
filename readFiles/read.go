@@ -3,7 +3,6 @@ package readFiles
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -17,7 +16,6 @@ type safeRead struct {
 func (sr *safeRead) addFile(filePath string, index *int) error {
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		log.Print(err, "Could not read file!")
 		return err
 	}
 
@@ -38,7 +36,6 @@ func ReadFiles(flag bool, files []string) (map[string]string, error) {
 		for _, v := range files {
 			data, err := ioutil.ReadFile(v)
 			if err != nil {
-				log.Print(err, "Could not read file!")
 				return nil, err
 			}
 
@@ -50,7 +47,6 @@ func ReadFiles(flag bool, files []string) (map[string]string, error) {
 		for _, v := range files {
 			dir, err := ioutil.ReadDir(v)
 			if err != nil {
-				log.Print(err, "Could not read directory!")
 				return nil, err
 			}
 

@@ -15,13 +15,12 @@ import (
 )
 
 var (
-	invertedIndexFile = "../outputJSON.txt"
-	stopWordsFile     = "../stopWords.txt"
+	invertedIndexFile = "outputJSON.txt"
+	stopWordsFile     = "stopWords.txt"
 	invertedIndexMap  invertedIndex.Index
 	stopWords         map[string]int
 	wg                sync.WaitGroup
-	errChannel        = make(chan error)
-	err               error
+	errChannel        = make(chan error, 2)
 
 	handler = http.NewServeMux()
 	server  = http.Server{
@@ -67,33 +66,20 @@ func init() {
 		file, mErr := ioutil.ReadFile(invertedIndexFile)
 		if mErr != nil {
 			errChannel <- mErr
-			return
 		}
 		mErr = json.Unmarshal(file, &invertedIndexMap)
 		if mErr != nil {
 			errChannel <- mErr
-			return
 		}
 		wg.Done()
 	}()
 
-	go func() struct{} {
-		for {
-			select {
-			case mErr, ok := <-errChannel:
-				if !ok {
-					return struct{}{}
-				}
-				err = mErr
-				close(errChannel)
-			}
-		}
-	}()
 	wg.Wait()
 	close(errChannel)
 
-	if err != nil {
+	if err, ok := <- errChannel; ok {
 		log.Fatal(err)
+		return
 	}
 }
 
@@ -113,7 +99,11 @@ func search(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	r.Body.Close()
+	err = r.Body.Close()
+	if err != nil {
+		log.Print(err)
+		return
+	}
 
 	var searchPhrase []string
 	searchPhrase = strings.Fields(string(rBody))
