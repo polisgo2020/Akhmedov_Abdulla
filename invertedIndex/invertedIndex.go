@@ -29,27 +29,29 @@ type SafeIndex struct {
 }
 
 func (sin *SafeIndex) addToken() {
-	if dto, ok := <-sin.ch; ok {
-		token := dto.token
-		file := dto.file
-		position := dto.position
+	for {
+		if dto, ok := <-sin.ch; ok {
+			token := dto.token
+			file := dto.file
+			position := dto.position
 
-		token = strings.TrimFunc(token, func(r rune) bool {
-			return !unicode.IsLetter(r)
-		})
-		token = stemmer.Stem(token)
+			token = strings.TrimFunc(token, func(r rune) bool {
+				return !unicode.IsLetter(r)
+			})
+			token = stemmer.Stem(token)
 
-		token = strings.ToLower(token)
-		if _, ok := sin.stopWords[token]; !ok && len(token) != 0 {
-			if sin.InvertedIndex[token] == nil {
-				sin.InvertedIndex[token] = make(map[string][]int)
+			token = strings.ToLower(token)
+			if _, ok := sin.stopWords[token]; !ok && len(token) != 0 {
+				if sin.InvertedIndex[token] == nil {
+					sin.InvertedIndex[token] = make(map[string][]int)
+				}
+
+				sin.InvertedIndex[token][file] = append(sin.InvertedIndex[token][file], position)
 			}
-
-			sin.InvertedIndex[token][file] = append(sin.InvertedIndex[token][file], position)
+		} else {
+			sin.Wg.Done()
+			return
 		}
-	} else {
-		sin.Wg.Done()
-		return
 	}
 }
 
