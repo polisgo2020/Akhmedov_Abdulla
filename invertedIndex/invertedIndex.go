@@ -174,7 +174,7 @@ func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index)
 			files := answerMap[v]
 			for _, file := range files {
 				if v > 0.0000001 {
-					fmt.Printf("%s - %f\n", file, v)
+					result += fmt.Sprintf("%s - %f\n", file, v)
 				}
 			}
 		}

@@ -84,6 +84,7 @@ func init() {
 }
 
 func main() {
+	log.Printf("Server starts at %s", server.Addr)
 	handler.HandleFunc("/search", logger(search))
 	log.Fatal(server.ListenAndServe())
 }
