@@ -29,30 +29,26 @@ type SafeIndex struct {
 }
 
 func (sin *SafeIndex) addToken() {
-	for {
-		if dto, ok := <-sin.ch; ok {
-			token := dto.token
-			file := dto.file
-			position := dto.position
+	for dto := range sin.ch {
+		token := dto.token
+		file := dto.file
+		position := dto.position
 
-			token = strings.TrimFunc(token, func(r rune) bool {
-				return !unicode.IsLetter(r)
-			})
-			token = stemmer.Stem(token)
+		token = strings.TrimFunc(token, func(r rune) bool {
+			return !unicode.IsLetter(r)
+		})
+		token = stemmer.Stem(token)
 
-			token = strings.ToLower(token)
-			if _, ok := sin.stopWords[token]; !ok && len(token) != 0 {
-				if sin.InvertedIndex[token] == nil {
-					sin.InvertedIndex[token] = make(map[string][]int)
-				}
-
-				sin.InvertedIndex[token][file] = append(sin.InvertedIndex[token][file], position)
+		token = strings.ToLower(token)
+		if _, ok := sin.stopWords[token]; !ok && len(token) != 0 {
+			if sin.InvertedIndex[token] == nil {
+				sin.InvertedIndex[token] = make(map[string][]int)
 			}
-		} else {
-			sin.Wg.Done()
-			return
+
+			sin.InvertedIndex[token][file] = append(sin.InvertedIndex[token][file], position)
 		}
 	}
+	sin.Wg.Done()
 }
 
 // GetInvertedIndex returns inverted index map that also stores position of each token in document
