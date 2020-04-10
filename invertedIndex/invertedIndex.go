@@ -29,31 +29,27 @@ type SafeIndex struct {
 }
 
 func (sin *SafeIndex) addToken() {
-	for {
-		select {
-		case dto, ok := <-sin.ch:
-			if !ok {
-				sin.Wg.Done()
-				return
+	if dto, ok := <-sin.ch; ok {
+		token := dto.token
+		file := dto.file
+		position := dto.position
+
+		token = strings.TrimFunc(token, func(r rune) bool {
+			return !unicode.IsLetter(r)
+		})
+		token = stemmer.Stem(token)
+
+		token = strings.ToLower(token)
+		if _, ok := sin.stopWords[token]; !ok && len(token) != 0 {
+			if sin.InvertedIndex[token] == nil {
+				sin.InvertedIndex[token] = make(map[string][]int)
 			}
-			token := dto.token
-			file := dto.file
-			position := dto.position
 
-			token = strings.TrimFunc(token, func(r rune) bool {
-				return !unicode.IsLetter(r)
-			})
-			token = stemmer.Stem(token)
-
-			token = strings.ToLower(token)
-			if _, ok := sin.stopWords[token]; !ok && len(token) != 0 {
-				if sin.InvertedIndex[token] == nil {
-					sin.InvertedIndex[token] = make(map[string][]int)
-				}
-
-				sin.InvertedIndex[token][file] = append(sin.InvertedIndex[token][file], position)
-			}
+			sin.InvertedIndex[token][file] = append(sin.InvertedIndex[token][file], position)
 		}
+	} else {
+		sin.Wg.Done()
+		return
 	}
 }
 
@@ -63,8 +59,7 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (*SafeInd
 		filesMap     map[string]string
 		stopWordsMap map[string]int
 		wg           sync.WaitGroup
-		err          error
-		errChannel   = make(chan error)
+		errChannel   = make(chan error, 2)
 	)
 
 	wg.Add(1)
@@ -72,9 +67,7 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (*SafeInd
 		var mErr error
 		filesMap, mErr = readFiles.ReadFiles(flag, files)
 		if mErr != nil {
-			if _, ok := <-errChannel; ok {
-				errChannel <- mErr
-			}
+			errChannel <- mErr
 		}
 		wg.Done()
 	}()
@@ -86,36 +79,18 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (*SafeInd
 			stopWordsMap, mErr = readFiles.ReadStopWords(stopWordsFile)
 		}
 		if mErr != nil {
-			if _, ok := <-errChannel; ok {
-				errChannel <- mErr
-			}
+			errChannel <- mErr
 		}
 		wg.Done()
 	}()
-
-	// запоминаем первую ошибку и возвращаем ее
-	go func() {
-		mErr, ok := <-errChannel
-		if !ok {
-			return
-		}
-		err = mErr
-		close(errChannel)
-
-	}()
 	wg.Wait()
 
-	// я не понимаю почему, но если я пишу тут этот if у меня не заканчивается работа программы
-	//if _, ok := <-errChannel; ok {
-		close(errChannel)
-	//}
-
-	if err != nil {
+	close(errChannel)
+	if err, ok := <-errChannel; ok {
 		return nil, err
 	}
 
 	sin := SafeIndex{make(Index), stopWordsMap, make(chan dto), sync.WaitGroup{}}
-
 	sin.Wg.Add(1)
 	go sin.addToken()
 	for file, str := range filesMap {
