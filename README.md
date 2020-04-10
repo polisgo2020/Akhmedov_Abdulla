@@ -30,4 +30,6 @@
 * `go run ./web/web.go -index=outputJSON.txt :8080`
 * `go run ./web/web.go :8080`
 
+В тело запроса plain текстом передаем поисковую фразу, результ приходит также в теле ответа
+
 ![Alt text](./golang.png)
