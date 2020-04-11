@@ -7,63 +7,116 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync"
 	"unicode"
 )
 
 type Index map[string]map[string][]int
+
 var invertedIn Index
 
+type dto struct {
+	token    string
+	position int
+	file     string
+}
+
+type SafeIndex struct {
+	InvertedIndex Index
+	stopWords     map[string]int
+	ch            chan dto
+	Wg            sync.WaitGroup
+}
+
+func (sin *SafeIndex) addToken() {
+	for dto := range sin.ch {
+		token := dto.token
+		file := dto.file
+		position := dto.position
+
+		token = strings.TrimFunc(token, func(r rune) bool {
+			return !unicode.IsLetter(r)
+		})
+		token = stemmer.Stem(token)
+
+		token = strings.ToLower(token)
+		if _, ok := sin.stopWords[token]; !ok && len(token) != 0 {
+			if sin.InvertedIndex[token] == nil {
+				sin.InvertedIndex[token] = make(map[string][]int)
+			}
+
+			sin.InvertedIndex[token][file] = append(sin.InvertedIndex[token][file], position)
+		}
+	}
+	sin.Wg.Done()
+}
+
 // GetInvertedIndex returns inverted index map that also stores position of each token in document
-func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (Index, error) {
-	invertedIndex := make(map[string]map[string][]int)
-	filesMap, err := readFiles.ReadFiles(flag, files)
-	if err != nil {
+func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (*SafeIndex, error) {
+	var (
+		filesMap     map[string]string
+		stopWordsMap map[string]int
+		wg           sync.WaitGroup
+		errChannel   = make(chan error, 2)
+	)
+
+	wg.Add(1)
+	go func() {
+		var mErr error
+		filesMap, mErr = readFiles.ReadFiles(flag, files)
+		if mErr != nil {
+			errChannel <- mErr
+		}
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		var mErr error
+		if len(stopWordsFile) != 0 {
+			stopWordsMap, mErr = readFiles.ReadStopWords(stopWordsFile)
+		}
+		if mErr != nil {
+			errChannel <- mErr
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+
+	close(errChannel)
+	if err, ok := <-errChannel; ok {
 		return nil, err
 	}
 
-	stopWordsMap := make(map[string]int)
-	if len(stopWordsFile) != 0 {
-		stopWordsMap, err = readFiles.ReadStopWords(stopWordsFile)
-		if err != nil {
-			return nil, err
-		}
-	}
-
+	sin := SafeIndex{make(Index), stopWordsMap, make(chan dto), sync.WaitGroup{}}
+	sin.Wg.Add(1)
+	go sin.addToken()
 	for file, str := range filesMap {
 		tokens := strings.Fields(str)
+
 		for position, token := range tokens {
-			token = strings.TrimFunc(token, func(r rune) bool {
-				return !unicode.IsLetter(r)
-			})
-			token = stemmer.Stem(token) // Насколько я понимаю эта либа сделана по этому алгоритму
-			// https://tartarus.org/martin/PorterStemmer/def.txt
-
-			token = strings.ToLower(token)
-			if _, ok := stopWordsMap[token]; !ok && len(token) != 0 {
-				if invertedIndex[token] == nil {
-					invertedIndex[token] = make(map[string][]int)
-				}
-
-				invertedIndex[token][file] = append(invertedIndex[token][file], position)
-			}
+			sin.ch <- dto{token, position, file}
 		}
 	}
+	close(sin.ch)
+	sin.Wg.Wait()
 
 	// список всех файлов
-	invertedIndex[""] = make(map[string][]int)
+	sin.InvertedIndex[""] = make(map[string][]int)
 	for file, _ := range filesMap {
-		invertedIndex[""][file] = append(invertedIndex[""][file])
+		sin.InvertedIndex[""][file] = append(sin.InvertedIndex[""][file])
 	}
 
-	return invertedIndex, nil
+	return &sin, nil
 }
 
 func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index) {
 	invertedIn = iIn
 	var phrase []string
-	for i := 0; i < len(searchPhrase); i++ {
+
+	for i := range searchPhrase {
 		if _, ok := stopWords[searchPhrase[i]]; ok {
-			continue
+			return
 		}
 
 		tmp := strings.ToLower(stemmer.Stem(searchPhrase[i]))
@@ -71,9 +124,10 @@ func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index)
 			phrase = append(phrase, tmp)
 		}
 	}
+
 	searchPhrase = phrase
 	var answer []float64
-	answerMap := make (map[float64][]string)
+	answerMap := make(map[float64][]string)
 	if len(searchPhrase) == 1 {
 		if filesMap, ok := invertedIn[searchPhrase[0]]; ok {
 			for file := range filesMap {

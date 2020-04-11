@@ -33,7 +33,12 @@ func main() {
 	}
 
 	invertedIn, err := invertedIndex.GetInvertedIndex(*sin, directories, *stopWords)
-	jsonInverted, err := json.Marshal(invertedIn)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	jsonInverted, err := json.Marshal(invertedIn.InvertedIndex)
 	if err != nil {
 		log.Fatal(err, "Could not Marshall!")
 	}
