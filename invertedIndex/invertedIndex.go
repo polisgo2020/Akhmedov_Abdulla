@@ -110,13 +110,13 @@ func GetInvertedIndex(flag bool, files []string, stopWordsFile string) (*SafeInd
 	return &sin, nil
 }
 
-func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index) {
+func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index) string {
 	invertedIn = iIn
 	var phrase []string
 
 	for i := range searchPhrase {
 		if _, ok := stopWords[searchPhrase[i]]; ok {
-			return
+			return ""
 		}
 
 		tmp := strings.ToLower(stemmer.Stem(searchPhrase[i]))
@@ -125,6 +125,7 @@ func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index)
 		}
 	}
 
+	var result string
 	searchPhrase = phrase
 	var answer []float64
 	answerMap := make(map[float64][]string)
@@ -145,11 +146,11 @@ func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index)
 			for _, v := range answer {
 				files := answerMap[v]
 				for _, file := range files {
-					fmt.Printf("%s - %f\n", file, v)
+					result = fmt.Sprintf("%s - %f\n", file, v)
 				}
 			}
 		} else {
-			fmt.Print("None of files contains this search-phrase")
+			result = "None of files contains this search-phrase"
 		}
 	} else {
 		tmp := invertedIn[""]
@@ -169,11 +170,13 @@ func PrintSortedList(searchPhrase []string, stopWords map[string]int, iIn Index)
 			files := answerMap[v]
 			for _, file := range files {
 				if v > 0.0000001 {
-					fmt.Printf("%s - %f\n", file, v)
+					result += fmt.Sprintf("%s - %f\n", file, v)
 				}
 			}
 		}
 	}
+
+	return result
 }
 
 func getInfo(phrase []string, file string) float64 {

@@ -16,7 +16,7 @@ func main() {
 		log.Fatal("There are no arguments!")
 	}
 
-	// if false directory provided
+	//if false directory provided
 	sin := flag.Bool("s", false, "True if either single file or sequence of files provided")
 	stopWords := flag.String("sw", "", "True if stop-words file provided")
 	flag.Parse()
@@ -31,7 +31,6 @@ func main() {
 	} else {
 		directories = os.Args[1:]
 	}
-
 	invertedIn, err := invertedIndex.GetInvertedIndex(*sin, directories, *stopWords)
 	if err != nil {
 		log.Print(err)
